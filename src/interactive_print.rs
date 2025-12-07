@@ -1,18 +1,20 @@
 use std::cmp::max;
 use std::io::Stdout;
 
-use crossterm::cursor::{MoveTo, MoveToColumn};
+use crossterm::cursor::{self, MoveTo, MoveToColumn};
 use crossterm::event::KeyCode;
-use crossterm::terminal;
 use crossterm::terminal::{Clear, ClearType, size};
+use crossterm::{execute, terminal};
 
 use anyhow::Error;
 use anyhow::Result;
 use std::io::stdout;
 
-use crate::tree::Tree;
+use crate::tree::{Tree, TreeNode};
 
-struct Viewport {
+struct Viewport<'a> {
+    cursor_node: Option<&'a mut TreeNode>,
+
     lines_visible: usize,
     max_line: usize,
 
@@ -23,7 +25,7 @@ struct Viewport {
     highlight_substring: Option<String>,
 }
 
-impl Viewport {
+impl Viewport<'_> {
     fn new(lines_visible: usize, max_line: usize) -> Self {
         Self {
             lines_visible,
@@ -32,7 +34,31 @@ impl Viewport {
             first_line: 0,
             cursor_pad: lines_visible / 4,
             highlight_substring: None,
+            cursor_node: None,
         }
+    }
+
+    pub fn handle_events(&self, tree: &mut Tree, collapse: bool) {
+        use crossterm::execute;
+
+        let _ = execute!(stdout(), Clear(ClearType::All));
+        let _ = execute!(stdout(), MoveTo(0, 0));
+
+        let mut i = self.first_line;
+
+        let mut line_index = self.first_line;
+
+        tree.nodes_iter_mut()
+            .skip(self.first_line)
+            .take(self.lines_visible)
+            .for_each(|node| {
+                for _line in node.clone_lines() {
+                    if line_index == self.cursor && collapse {
+                        node.toggle_collapse();
+                    }
+                    line_index += 1;
+                }
+            });
     }
 
     pub fn draw(&self, tree: &Tree) {
@@ -41,21 +67,25 @@ impl Viewport {
         let _ = execute!(stdout(), Clear(ClearType::All));
         let _ = execute!(stdout(), MoveTo(0, 0));
 
-        tree.lines_iter()
+        let lines_printed: usize = tree
+            .lines_iter()
             .enumerate()
             .skip(self.first_line)
             .take(self.lines_visible)
-            .for_each(|(i, line)| {
-                // Print line
-                match i == self.cursor {
-                    true => {
-                        println!("==> {} ================", line.text);
-                    }
-                    false => println!("    {}", line.text),
-                }
-
+            .map(|(i, line)| {
+                line.print(i == self.cursor);
                 let _ = execute!(stdout(), MoveToColumn(0));
-            });
+                1
+            })
+            .sum();
+
+        for i in lines_printed..self.lines_visible {
+            match i == self.cursor {
+                true => println!("~ ======================="),
+                false => println!("~"),
+            }
+            let _ = execute!(stdout(), MoveToColumn(0));
+        }
     }
 
     pub fn handle_scroll(&mut self, lines: i32) {
@@ -82,27 +112,6 @@ impl Viewport {
         }
     }
 
-    // pub fn handle_scroll(&mut self, lines: i32) -> () {
-    //     let new_line = self.cursor as i64 + lines as i64;
-    //
-    //     let padding_up = self.cursor - self.first_line;
-    //     let padding_down = self.lines_visible - self.cursor;
-    //
-    //     let move_viewport: i64 = {
-    //         if padding_up < self.cursor_pad {
-    //             -1
-    //         } else if padding_down < self.cursor_pad {
-    //             0
-    //         } else {
-    //             1
-    //         }
-    //     };
-    //     if new_line >= 0 {
-    //         self.cursor = new_line as usize;
-    //         self.first_line = (self.first_line as i64 + move_viewport) as usize; // TODO not like this
-    //     }
-    // }
-
     pub fn handle_center(&mut self) {
         self.first_line = max(0, self.cursor as i64 - self.lines_visible as i64 / 2) as usize;
     }
@@ -112,13 +121,18 @@ impl Viewport {
     }
 }
 
-pub fn main_loop(tree: &Tree, lines: usize) -> Result<()> {
+pub fn main_loop(tree: &mut Tree, lines: usize) -> Result<()> {
     crossterm::terminal::enable_raw_mode()?;
+    let _ = execute!(stdout(), cursor::Hide);
 
     let (_width, height) = crossterm::terminal::size()?;
     let mut viewport = Viewport::new(height as usize, lines);
 
+    let mut collapse_cmd = false;
+
     loop {
+        viewport.handle_events(tree, collapse_cmd);
+        collapse_cmd = false;
         viewport.draw(tree);
 
         if let Ok(read_event) = crossterm::event::read() {
@@ -128,6 +142,7 @@ pub fn main_loop(tree: &Tree, lines: usize) -> Result<()> {
                     KeyCode::Down => viewport.handle_scroll(1),
                     KeyCode::Char('q') => break,
                     KeyCode::Char('c') => viewport.handle_center(),
+                    KeyCode::Enter => collapse_cmd = true,
                     _ => {}
                 },
                 crossterm::event::Event::Resize(_, h) => viewport.lines_visible = h as usize,

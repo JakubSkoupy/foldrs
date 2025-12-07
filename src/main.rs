@@ -16,7 +16,7 @@ fn main() -> Result<(), Error> {
     let stdin = io::stdin();
 
     let mut input_iter = stdin.lock().lines().map(|l| l.unwrap()).peekable();
-    let tree = parse(&mut input_iter);
+    let mut tree = parse(&mut input_iter);
 
-    main_loop(&tree, 100)
+    main_loop(&mut tree, 100)
 }

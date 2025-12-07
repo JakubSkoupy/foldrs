@@ -1,10 +1,33 @@
-use crate::tree::Line;
+use std::marker::PhantomData;
+
 use crate::tree::Tree;
 use crate::tree::TreeNode;
 
 pub struct TextLine {
     pub text: String,
     pub level: usize,
+
+    leaf: bool,
+    collapse: bool,
+}
+
+impl TextLine {
+    fn print_inner(&self) -> String {
+        match self.leaf {
+            true => format!("    { }", self.text),
+            false => match self.collapse {
+                true => format!("    { } >>> ", self.text),
+                false => format!("    { } vvv", self.text),
+            },
+        }
+    }
+
+    pub fn print(&self, cursor: bool) {
+        match cursor {
+            true => println!("==> {} ================", self.print_inner()),
+            false => println!("    {}                 ", self.print_inner()),
+        }
+    }
 }
 
 // Immutable iterator
@@ -18,36 +41,39 @@ impl<'a> Iterator for TreeNodeIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let node = self.stack.pop()?;
 
-        for child in node.children.iter().rev() {
-            self.stack.push(child);
+        if !node.collapsed {
+            for child in node.children.iter().rev() {
+                self.stack.push(child);
+            }
         }
         Some(node)
     }
 }
 
 // Mutable iterator
-pub struct TreeNodeForeachIterator<'a, F>
-where
-    F: FnMut(&'a mut TreeNode) -> &'a mut TreeNode,
-{
-    stack: Vec<&'a mut TreeNode>,
-    function: F,
+pub struct TreeNodeMutIterator<'a> {
+    stack: Vec<*mut TreeNode>, // Nothing else is needed really. At least now
+    _marker: PhantomData<&'a mut TreeNode>,
 }
 
-impl<'a, F> Iterator for TreeNodeForeachIterator<'a, F>
-where
-    F: FnMut(&'a mut TreeNode) -> &'a mut TreeNode,
-{
-    type Item = ();
+impl<'a> Iterator for TreeNodeMutIterator<'a> {
+    type Item = &'a mut TreeNode;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let node = self.stack.pop()?;
-        let node = (self.function)(node);
+        let node_ptr = self.stack.pop()?;
 
-        for child in node.children.iter_mut().rev() {
-            self.stack.push(child);
+        unsafe {
+            // TODO use lib or implement safe iterator
+            let node = &mut *node_ptr;
+
+            if !node.collapsed {
+                for child in node.children.iter_mut().rev() {
+                    self.stack.push(child as *mut _);
+                }
+            }
+
+            Some(node)
         }
-        Some(())
     }
 }
 
@@ -57,12 +83,12 @@ impl Tree {
         TreeNodeIterator { stack }
     }
 
-    pub fn foreach_node<'a, F>(&'a mut self, f: F) -> TreeNodeForeachIterator<'a, F>
-    where
-        F: FnMut(&mut TreeNode) -> &'a mut TreeNode,
-    {
-        let stack: Vec<&'a mut TreeNode> = self.roots.iter_mut().collect();
-        TreeNodeForeachIterator { stack, function: f }
+    pub fn nodes_iter_mut<'a>(&mut self) -> TreeNodeMutIterator<'a> {
+        let stack: Vec<*mut TreeNode> = self.roots.iter_mut().map(|n| n as *mut _).collect();
+        TreeNodeMutIterator {
+            stack,
+            _marker: PhantomData,
+        }
     }
 
     pub fn lines_iter(&self) -> impl Iterator<Item = TextLine> {
@@ -70,6 +96,8 @@ impl Tree {
             node.lines_iter().map(|x| TextLine {
                 text: x.full_line.clone(),
                 level: node.level,
+                collapse: node.collapsed,
+                leaf: node.is_leaf(),
             })
         })
     }

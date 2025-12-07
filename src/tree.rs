@@ -13,6 +13,31 @@ impl Line {
     fn line(&self, indentation: usize) -> &str {
         &self.full_line[indentation..]
     }
+
+    fn print_inner(&self, collapse: bool, leaf: bool) -> String {
+        match leaf {
+            true => format!("    { }     ", self.full_line),
+            false => match collapse {
+                true => format!("    { } >>> ", self.full_line),
+                false => format!("    { } vvv", self.full_line),
+            },
+        }
+    }
+
+    pub fn print(&self, cursor: bool, collapsed: bool, leaf: bool) {
+        match cursor {
+            true => println!("==> {} ================", self.print_inner(collapsed, leaf)),
+            false => println!("    {}                 ", self.print_inner(collapsed, leaf)),
+        }
+    }
+}
+
+impl Clone for Line {
+    fn clone(&self) -> Self {
+        Self {
+            full_line: self.full_line.clone(),
+        }
+    }
 }
 
 /* Represents one tree node. So probably one line from the input */
@@ -37,6 +62,10 @@ impl TreeNode {
         }
     }
 
+    pub fn clone_lines(&self) -> Vec<Line> {
+        self.lines.iter().cloned().collect()
+    }
+
     pub fn lines_iter(&self) -> std::slice::Iter<'_, Line> {
         self.lines.iter()
     }
@@ -50,6 +79,10 @@ impl TreeNode {
         F: FnMut(&mut Line),
     {
         self.lines.iter_mut().for_each(f)
+    }
+
+    pub fn is_leaf(&self) -> bool {
+        self.children.is_empty()
     }
 
     /// Adds a line of text to the node.

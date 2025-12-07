@@ -24,6 +24,8 @@ where
     let mut result: Vec<TreeNode> = vec![];
     let mut next = true;
 
+    let multiline = false; // TODO make it an argument
+
     while let Some(line) = input.peek() {
         let indentation = get_indentation(&line);
 
@@ -31,9 +33,16 @@ where
             Some(node) if !next => {
                 match indentation.cmp(&node.indentation) {
                     // Expand current node.
-                    std::cmp::Ordering::Equal => {
-                        node.push_line(&input.next().unwrap());
-                    }
+                    std::cmp::Ordering::Equal => match multiline {
+                        true => {
+                            node.push_line(&input.next().unwrap());
+                        }
+                        false => {
+                            result.push(TreeNode::new(level, indentation));
+                            let node = result.last_mut().unwrap();
+                            node.push_line(&input.next().unwrap());
+                        }
+                    },
 
                     // Make a new node, and go deeper.
                     std::cmp::Ordering::Greater => {
