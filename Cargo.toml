@@ -1,0 +1,14 @@
+[package]
+name = "foldrs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = "4.5.53"
+crossterm = "0.29.0"
+tree_iterators_rs = "3.5.2"
+
+[profile.dev]
+debug = true
+split-debuginfo = 'packed'
