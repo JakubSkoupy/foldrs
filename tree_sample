@@ -1,0 +1,14 @@
+.
+    Cargo.lock
+    Cargo.toml
+    src
+        main.rs
+        parse.rs
+        parse_rules.rs
+        tree.rs
+    target
+        CACHEDIR.TAG
+        debug
+        flycheck0
+    tree_sample
+.

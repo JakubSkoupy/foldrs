@@ -1,6 +1,7 @@
-mod interactive_print;
+mod interact;
 mod parse;
 mod parse_rules;
+mod stacktree;
 pub(crate) mod tree;
 mod tree_iter;
 
@@ -8,9 +9,10 @@ use anyhow::Error;
 use anyhow::Result;
 use parse::parse;
 
-use std::io::{self, BufRead};
+use std::io;
+use std::io::BufRead;
 
-use crate::interactive_print::main_loop;
+use crate::interact::main_loop;
 
 fn main() -> Result<(), Error> {
     let stdin = io::stdin();

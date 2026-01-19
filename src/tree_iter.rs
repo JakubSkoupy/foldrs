@@ -79,12 +79,12 @@ impl<'a> Iterator for TreeNodeMutIterator<'a> {
 
 impl Tree {
     pub fn nodes_iter(&self) -> TreeNodeIterator<'_> {
-        let stack: Vec<&TreeNode> = self.roots.iter().collect();
+        let stack: Vec<&TreeNode> = self.nodes.iter().collect();
         TreeNodeIterator { stack }
     }
 
     pub fn nodes_iter_mut<'a>(&mut self) -> TreeNodeMutIterator<'a> {
-        let stack: Vec<*mut TreeNode> = self.roots.iter_mut().map(|n| n as *mut _).collect();
+        let stack: Vec<*mut TreeNode> = self.nodes.iter_mut().map(|n| n as *mut _).collect();
         TreeNodeMutIterator {
             stack,
             _marker: PhantomData,
