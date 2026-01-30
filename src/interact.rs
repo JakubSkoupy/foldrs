@@ -11,7 +11,7 @@ use crossterm::terminal::ClearType;
 use anyhow::Result;
 use std::io::stdout;
 
-use crate::tree::{Tree, TreeNode};
+use crate::vectree::VecTree;
 
 struct Viewport {
     lines_visible: usize,
@@ -36,7 +36,7 @@ impl Viewport {
         }
     }
 
-    pub fn handle_events(&self, tree: &mut Tree, collapse: bool) {
+    pub fn handle_events(&self, tree: &mut VecTree, collapse: bool) {
         use crossterm::execute;
 
         let _ = execute!(stdout(), Clear(ClearType::All));
@@ -46,8 +46,8 @@ impl Viewport {
         tree.nodes_iter_mut()
             .skip(self.first_line)
             .take(self.lines_visible)
-            .for_each(|node| {
-                for _line in node.clone_lines() {
+            .for_each(|(node, deph)| {
+                for _ in 0..node.lines.len() {
                     if line_index == self.cursor && collapse {
                         node.toggle_collapse();
                     }
@@ -56,7 +56,7 @@ impl Viewport {
             });
     }
 
-    pub fn draw(&self, tree: &Tree) {
+    pub fn draw(&self, tree: &VecTree) {
         use crossterm::execute;
 
         let _ = execute!(stdout(), Clear(ClearType::All));
@@ -74,7 +74,7 @@ impl Viewport {
             })
             .sum();
 
-        for i in lines_printed..self.lines_visible {
+        for i in lines_printed..self.lines_visible - 1 {
             match i == self.cursor {
                 true => println!("~ ======================="),
                 false => println!("~"),
@@ -119,7 +119,7 @@ impl Viewport {
     }
 }
 
-pub fn main_loop(tree: &mut Tree, lines: usize) -> Result<()> {
+pub fn main_loop(tree: &mut VecTree, lines: usize) -> Result<()> {
     crossterm::terminal::enable_raw_mode()?;
     let _ = execute!(stdout(), cursor::Hide);
 
@@ -127,11 +127,6 @@ pub fn main_loop(tree: &mut Tree, lines: usize) -> Result<()> {
     let mut viewport = Viewport::new(height as usize, lines);
 
     let mut collapse_cmd = false;
-
-    let x = match true {
-        true => 1,
-        false => 2,
-    };
 
     loop {
         viewport.handle_events(tree, collapse_cmd);

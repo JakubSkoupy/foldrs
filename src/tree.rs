@@ -1,3 +1,4 @@
+/* DEPRECATED */
 #[derive(Debug)]
 pub struct Line {
     pub full_line: String,

@@ -1,6 +1,33 @@
 use crate::tree::Line;
 use std::marker::PhantomData;
 
+pub struct TextLine {
+    pub text: String,
+    pub level: usize,
+
+    leaf: bool,
+    collapse: bool,
+}
+
+impl TextLine {
+    fn print_inner(&self) -> String {
+        match self.leaf {
+            true => format!("    { }", self.text),
+            false => match self.collapse {
+                true => format!("    { } >>> ", self.text),
+                false => format!("    { } vvv", self.text),
+            },
+        }
+    }
+
+    pub fn print(&self, cursor: bool) {
+        match cursor {
+            true => println!("==> {} ================", self.print_inner()),
+            false => println!("    {}                 ", self.print_inner()),
+        }
+    }
+}
+
 pub struct VecTreeNode {
     pub lines: Vec<Line>,
     pub(crate) collapsed: bool,
@@ -23,6 +50,32 @@ impl VecTreeNode {
 
     pub fn push_line(&mut self, line: &str) -> () {
         self.lines.push(Line::new(line.to_string()));
+    }
+
+    pub fn toggle_collapse(&mut self) -> () {
+        self.collapsed = !self.collapsed;
+    }
+
+    pub fn lines_iter(&self) -> std::slice::Iter<'_, Line> {
+        self.lines.iter()
+    }
+
+    fn print_inner(&self) -> String {
+        match self.subtree_size == 0 {
+            // leaf node
+            true => format!("    { }", self.lines[0].full_line),
+            false => match self.collapsed {
+                true => format!("    { } >>> ", self.lines[0].full_line),
+                false => format!("    { } vvv", self.lines[0].full_line),
+            },
+        }
+    }
+
+    pub fn print(&self, cursor: bool) {
+        match cursor {
+            true => println!("==> {} ================", self.print_inner()),
+            false => println!("    {}                 ", self.print_inner()),
+        }
     }
 }
 
@@ -145,6 +198,7 @@ impl<'a> Iterator for StackTreeMutIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.index;
+
         unsafe {
             let current_node = (*self.tree).nodes.get_mut(index)?;
 
@@ -206,5 +260,16 @@ impl VecTree {
             tree: self,
             _marker: PhantomData,
         }
+    }
+
+    pub fn lines_iter(&self) -> impl Iterator<Item = TextLine> {
+        self.nodes_iter().flat_map(|(node, depth)| {
+            node.lines_iter().map(move |x| TextLine {
+                text: x.full_line.clone(),
+                level: depth,
+                collapse: node.collapsed,
+                leaf: node.subtree_size == 0,
+            })
+        })
     }
 }

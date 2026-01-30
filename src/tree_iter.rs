@@ -1,3 +1,4 @@
+/* DEPRECATED */
 use std::marker::PhantomData;
 
 use crate::tree::Tree;
