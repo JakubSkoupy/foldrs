@@ -1,6 +1,8 @@
-use crate::tree::Line;
 use std::marker::PhantomData;
 
+/* Duplicate functionality with the struct Line.
+ * Will decide on which one I will be using
+ * */
 pub struct TextLine {
     pub text: String,
     pub level: usize,
@@ -24,6 +26,40 @@ impl TextLine {
         match cursor {
             true => println!("==> {} ================", self.print_inner()),
             false => println!("    {}                 ", self.print_inner()),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Line {
+    pub full_line: String,
+}
+
+impl Line {
+    pub fn new(full_line: String) -> Self {
+        Self { full_line }
+    }
+
+    /// Returns a string slice of the [`Line`] content without
+    /// indentation.
+    fn line(&self, indentation: usize) -> &str {
+        &self.full_line[indentation..]
+    }
+
+    fn print_inner(&self, collapse: bool, leaf: bool) -> String {
+        match leaf {
+            true => format!("    { }     ", self.full_line),
+            false => match collapse {
+                true => format!("    { } >>> ", self.full_line),
+                false => format!("    { } vvv", self.full_line),
+            },
+        }
+    }
+
+    pub fn print(&self, cursor: bool, collapsed: bool, leaf: bool) {
+        match cursor {
+            true => println!("==> {} ================", self.print_inner(collapsed, leaf)),
+            false => println!("    {}                 ", self.print_inner(collapsed, leaf)),
         }
     }
 }

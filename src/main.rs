@@ -1,8 +1,5 @@
 mod interact;
-mod parse;
 mod parse_rules;
-mod tree;
-mod tree_iter;
 mod vectree;
 
 use anyhow::Error;
