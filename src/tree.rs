@@ -4,7 +4,7 @@ pub struct Line {
 }
 
 impl Line {
-    fn new(full_line: String) -> Self {
+    pub fn new(full_line: String) -> Self {
         Self { full_line }
     }
 
