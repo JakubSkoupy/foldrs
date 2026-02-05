@@ -155,17 +155,18 @@ pub struct VecTreeNodeIterator<'a> {
 }
 
 impl<'a> Iterator for VecTreeNodeIterator<'a> {
-    type Item = &'a VecTreeNode;
+    type Item = (&'a VecTreeNode, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
         let current_node = &self.tree.nodes.get(self.index)?;
+        let index = self.index;
 
         self.index += 1 + match current_node.collapsed {
             true => current_node.subtree_size,
             _ => 0,
         };
 
-        Some(current_node)
+        Some((current_node, index))
     }
 }
 
@@ -227,20 +228,38 @@ impl VecTreeCursor {
         }
     }
 
-    pub fn next_sibling(&mut self, node: &VecTreeNode, length: usize) -> Option<usize> {
+    pub fn next_sibling(&mut self, tree: &VecTree, length: usize) -> Option<usize> {
+        let node = tree.get(self.index)?;
         match self.index + 1 + node.subtree_size {
-            index if index < length => self.index = index,
+            index if index < length => {
+                let next_node = tree.get(index)?;
+
+                if next_node.depth != node.depth {
+                    return None;
+                }
+                self.index = index
+            }
             _ => return None,
         }
 
         Some(self.index)
     }
 
-    pub fn prev_sibling(&mut self, prev_node: &VecTreeNode) -> Option<usize> {
-        self.index = self
+    pub fn prev_sibling(&mut self, tree: &VecTree) -> Option<usize> {
+        let prev_node = tree.get(self.index - 1)?;
+        let node = tree.get(self.index)?;
+
+        let index = self
             .index
             .checked_sub(prev_node.next_node_previous_sibling_offset)?;
-        Some(self.index)
+
+        match tree.get(index) {
+            Some(n) if n.depth == node.depth => {
+                self.index = index;
+                Some(index)
+            }
+            _ => None,
+        }
     }
 
     pub fn parent(&mut self, node: &VecTreeNode) -> usize {

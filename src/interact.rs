@@ -88,19 +88,15 @@ impl Viewport {
                 Action::NextSibling => {
                     let index = cursor.index as i32;
                     let difference =
-                        (index - cursor.next_sibling(node, self.tree_length)? as i32) as i32;
+                        (index - cursor.next_sibling(tree, self.tree_length)? as i32) as i32;
 
                     self.handle_scroll(-difference);
                     None
                 }
                 Action::PrevSibling => {
                     let index = cursor.index;
-                    if let Some(prev_node) = tree.get(index - 1) {
-                        let difference = (index - cursor.prev_sibling(prev_node)?) as i32;
-                        self.handle_scroll(-difference);
-                    } else {
-                        Some("No previous sibling found");
-                    }
+                    let difference = (index - cursor.prev_sibling(tree)?) as i32;
+                    self.handle_scroll(-difference);
 
                     None
                 }
@@ -133,7 +129,7 @@ impl Viewport {
     pub fn draw(&self, tree: &VecTree, message: &Option<String>) {
         use crossterm::execute;
         let padding = match message {
-            Some(_) => 4,
+            Some(_) => 3,
             _ => 1,
         };
 
@@ -145,19 +141,15 @@ impl Viewport {
             .enumerate()
             .skip(self.first_line)
             .take(self.lines_visible - padding)
-            .map(|(i, node)| {
-                node.print(i == self.cursor, i, &self.settings);
+            .map(|(i, (node, node_index))| {
+                node.print(i == self.cursor, node_index, &self.settings);
                 let _ = execute!(stdout(), MoveToColumn(0));
                 1 // To count the number of printed lines
             })
             .sum();
 
-        for i in lines_printed..self.lines_visible - padding {
-            match i == self.cursor {
-                true => println!("~ ======================="),
-                false => println!("~"),
-            }
-
+        for _ in lines_printed..self.lines_visible - padding {
+            println!("~");
             let _ = execute!(stdout(), MoveToColumn(0));
         }
 
@@ -212,7 +204,6 @@ pub fn main_loop(tree: &mut VecTree, lines: usize) -> Result<()> {
     };
 
     let mut viewport = Viewport::new(settings, height as usize, lines, tree.nodes.len());
-
     let mut cursor = VecTreeCursor::new();
     let mut message = None;
 
@@ -254,39 +245,3 @@ pub fn main_loop(tree: &mut VecTree, lines: usize) -> Result<()> {
     let _ = execute!(stdout(), cursor::Show);
     Ok(())
 }
-
-// pub fn main_loop(tree: &mut VecTree, lines: usize) -> Result<()> {
-//     crossterm::terminal::enable_raw_mode()?;
-//     let _ = execute!(stdout(), cursor::Hide);
-//
-//     let (_width, height) = crossterm::terminal::size()?;
-//
-//     let mut viewport = Viewport::new(height as usize, lines);
-//     let mut collapse_cmd = false;
-//
-//     loop {
-//         // viewport.handle_events(tree, collapse_cmd);
-//         collapse_cmd = false;
-//         {
-//             viewport.draw(tree);
-//         }
-//
-//         if let Ok(read_event) = crossterm::event::read() {
-//             match read_event {
-//                 crossterm::event::Event::Key(code) => match code.code {
-//                     KeyCode::Up => viewport.handle_scroll(-1),
-//                     KeyCode::Down => viewport.handle_scroll(1),
-//                     KeyCode::Char('q') => break,
-//                     KeyCode::Char('c') => viewport.handle_center(),
-//                     KeyCode::Enter => collapse_cmd = true,
-//                     _ => {}
-//                 },
-//                 crossterm::event::Event::Resize(_, h) => viewport.set_size(h as usize),
-//                 _ => {}
-//             }
-//         }
-//     }
-//     crossterm::terminal::disable_raw_mode()?;
-//     let _ = execute!(stdout(), cursor::Show);
-//     Ok(())
-// }
